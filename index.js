@@ -36,7 +36,7 @@ uploader.addEventListener("change", async (event) => {
  formData.append("hash", hash)
  formData.append("offset", uploaded)
  try {
- await axios.post("https://leileidianying.github.io/upload", formData)
+ await axios.post("https://leileidianying.github.io", formData)
  } catch (e) {
  output.innerText = "上传失败！" + e.message
  return
