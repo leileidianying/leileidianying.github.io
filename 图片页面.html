@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <noscript>
+<style>
+html,body{height:100%;overflow:hidden;margin:0;padding:0;}
+.mask-box{
+    position:fixed;inset:0;background:#000;color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;z-index:999999;
+    padding:20px;text-align:center;
+}
+body>*{display:none !important;visibility:hidden !important;}
+</style>
+<div class="mask-box">
+    页面需要开启JavaScript才能正常使用，请在浏览器设置允许JS后刷新页面
+</div>
+</noscript> 
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,user-scalable=no">
+
+    <!-- 禁止缓存三行 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+    <title>商品列表</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: sans-serif;
+        }
+
+        body {
+            background-color: #e9e9e9;
+            padding: 20px 10px;
+            min-height: 100vh;
+        }
+
+        .goods-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .goods-card {
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .goods-img {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            display: block;
+            object-fit: cover;
+        }
+
+        .goods-info {
+            padding: 10px;
+        }
+
+        .goods-title {
+            font-size: 15px;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        
+
+        .goods-price {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* 原价删除线样式 */
+        .price-old {
+            color: #999;
+            font-size: 14px;
+            text-decoration: line-through;
+        }
+        /* 优惠后价格 */
+        .price-new {
+            color: #e4393c;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        /* 优惠券标签 */
+        .coupon-tag {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 2px 6px;
+            font-size: 12px;
+            border: 1px solid #e4393c;
+            color: #e4393c;
+            border-radius: 4px;
+        }
+        /* 优惠券置灰样式 */
+        .coupon-tag.disabled {
+            color: #ccc;
+            border-color: #ccc;
+            background: #f5f5f5;
+        }
+
+        @media (min-width: 768px) {
+            .goods-grid { gap: 16px; }
+            body { padding: 40px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 购买提示条 -->
+    <div style="
+        margin: 0 auto 16px auto;
+        max-width: 600px;
+        padding: 12px 15px;
+        border: 2px dashed #e4393c;
+        border-radius: 8px;
+        background-color: #fff5f5;
+        color: #c0392b;
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+    ">
+        要购买图片请加我QQ号:3395984648<br>
+        图片在QQ上交易, 图片购买后会发到你QQ号上，图片都可以商用一年
+    </div>
+
+    <div class="goods-grid" id="goodsContainer"></div>
+
+<script>
+  const basePrice = 30;
+  const container = document.getElementById('goodsContainer');
+
+  // ========== 核心：商品数据配置区（共100个商品） ==========
+  const goodsList = [
+    { img: "鸡年图标1.png", title: "鸡年图标" },
+    { img: "国庆节.png", title: "国庆节" },
+    { img: "劳动节.png", title: "劳动节" },
+    { img: "不忘初心11.png", title: "不忘初心" },
+    { img: "羊年大吉.png", title: "羊年大吉" },
+    { img: "羊年快乐.png", title: "羊年快乐" },
+    { img: "清明节1.png", title: "清明节" },
+    { img: "拼图.png", title: "漂亮的花" },
+    { img: "空间变换.png", title: "空间变换" },
+    { img: "和平鸽-1.png", title: "和平鸽" }
+
+  ];
+
+  // 读取今日优惠券使用记录
+  function getCouponUsedToday() {
+    const recordStr = localStorage.getItem("couponExchangeDay");
+    if (!recordStr) return "";
+    try {
+      const record = JSON.parse(recordStr);
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+      return record.date === todayStr ? record.used : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  // 批量渲染商品
+  function createGoodsList() {
+    let html = '';
+    const usedCoupon = getCouponUsedToday();
+
+    goodsList.forEach(item => {
+     
+      
+      // 价格 + 优惠券样式
+      let priceHtml = '';
+      let couponClass = 'coupon-tag';
+      if (usedCoupon === "20") {
+        let realPrice = basePrice - 20;
+        priceHtml = `<span class="price-old">¥${basePrice}</span><span class="price-new">¥${realPrice}</span>`;
+        couponClass += ' disabled';
+      } else if (usedCoupon === "1") {
+        let realPrice = basePrice - 1;
+        priceHtml = `<span class="price-old">¥${basePrice}</span><span class="price-new">¥${realPrice}</span>`;
+        couponClass += ' disabled';
+      } else {
+        priceHtml = `<span class="price-new">¥${basePrice}</span>`;
+      }
+
+      // 拼接单个商品HTML
+      html += `
+        <div class="goods-card">
+            <img class="goods-img" src="${item.img}" alt="${item.title}">
+            <div class="goods-info">
+                <div class="goods-title">${item.title}</div>
+                <div class="goods-price">${priceHtml}</div>
+                <div class="${couponClass}">优惠券</div>
+            </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  }
+
+  // 初始化执行
+  createGoodsList();
+
+  
+// 1. 监听 localStorage 变化（跨页改券 实时更新，首选）
+window.addEventListener('storage', function(e) {
+  if (e.key === "couponExchangeDay") {
+    createGoodsList();
+  }
+});
+
+// 2. 监听页面激活（切换标签/窗口 兜底刷新，保留不删）
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden) {
+    createGoodsList();
+  }
+});
+ // 1. 禁用右键菜单
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// 2. 禁用F12、Ctrl+U、Ctrl+Shift+I/C/J 开发者快捷键
+document.addEventListener('keydown', e => {
+  const key = e.key.toLowerCase();
+  // F12
+  if (key === 'f12') e.preventDefault();
+  // Ctrl + U 查看源码
+  if (e.ctrlKey && key === 'u') e.preventDefault();
+  // Ctrl+Shift+I / Ctrl+Shift+J 开发者工具
+  if (e.ctrlKey && e.shiftKey && (key === 'i' || key === 'j')) e.preventDefault();
+  // Ctrl+S 保存页面
+  if (e.ctrlKey && key === 's') e.preventDefault();
+});
+
+ // 3. 检测打开控制台窗口，弹窗刷新页面（进阶防护）
+let devToolsOpen = false;
+const checkDevTool = () => {
+  const threshold = 160;
+  const widthDiff = window.outerWidth - window.innerWidth;
+  const heightDiff = window.outerHeight - window.innerHeight;
+  if (widthDiff > threshold || heightDiff > threshold) {
+    if (!devToolsOpen) {
+      devToolsOpen = true;
+      alert('禁止打开开发者工具，页面即将刷新');
+      window.location.reload();
+    }
+  } else {
+    devToolsOpen = false;
+  }
+};
+setInterval(checkDevTool, 800);
+
+ // 4. 禁止拖拽复制文字/图片
+document.addEventListener('dragstart', e => e.preventDefault());
+
+// 下面粘贴这段拦截保存代码
+// 拦截Ctrl+S保存页面
+document.addEventListener('keydown',e=>{
+    if(e.ctrlKey && e.key.toLowerCase() === 's') e.preventDefault();
+})
+</script>
+</body>
+</html>
