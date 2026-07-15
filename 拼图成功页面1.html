@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+
+<noscript>
+<style>
+html,body{height:100%;overflow:hidden;margin:0;padding:0;}
+.mask-box{
+    position:fixed;inset:0;background:#000;color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;z-index:999999;
+    padding:20px;text-align:center;
+}
+body>*{display:none !important;visibility:hidden !important;}
+</style>
+<div class="mask-box">
+    页面需要开启JavaScript才能正常使用，请在浏览器设置允许JS后刷新页面
+</div>
+</noscript>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+
+<!-- 禁止缓存三行 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+
+<title>音乐播放</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Alibaba PuHuiTi";
+}
+body {
+    background: #f5f7fa;
+    padding-bottom: 130px;
+}
+.container {
+    max-width: 700px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+}
+h2 {
+    text-align: center;
+    color: #222;
+    margin-bottom: 25px;
+}
+.coin-total {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #ff9800;
+    margin: 10px 0;
+}
+.song-list {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 30px;
+}
+.song-item {
+    padding: 14px 18px;
+    background: #f0f4f9;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s;
+}
+.song-item:hover {
+    background: #e2ecf8;
+}
+.song-item.active {
+    background: #2374e1;
+    color: #fff;
+}
+
+.player-fixed-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    padding: 15px 20px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    z-index: 99;
+}
+.play-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.control-btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    background: #2374e1;
+    color: #fff;
+    cursor: pointer;
+    font-size: 15px;
+}
+.control-btn:disabled {
+    background: #999;
+    cursor: not-allowed;
+}
+audio {
+    width: 100%;
+}
+.tip-text {
+    text-align: center;
+    color: #666;
+    margin: 10px 0;
+    font-size: 14px;
+}
+
+/* 红包悬浮球（可拖动） */
+.circle-progress {
+    width: 180px;
+    height: 180px;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    user-select: none;
+    touch-action: none;
+    z-index: 999;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+@media (max-width: 768px) {
+  .circle-progress {
+    width: 110px;
+    height: 110px;
+    top: 15px;
+    left: 15px;
+  }
+}
+
+.circle-bg-dark { fill: #000; stroke: none; }
+.circle-bg { fill: none; stroke: #333; stroke-width: 5; }
+.circle-bar {
+  fill: none;
+  stroke: #409eff;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 282.74;
+  stroke-dashoffset: 282.74;
+}
+
+.red-packet {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 160px; height: 160px;
+  object-fit: contain;
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  .red-packet { width: 100px; height:100px; }
+}
+
+.coin {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 22px;
+  font-weight: bold;
+  color: #ff9700;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.coin.show { animation: coinFly 4s forwards; }
+@keyframes coinFly {
+  0% { opacity:1; transform:translate(-50%,-50%); }
+  100% { opacity:0; transform:translate(-50%,-140px); }
+}
+</style>
+</head>
+<body>
+
+<!-- 红包悬浮球 -->
+<div class="circle-progress" id="dragBox">
+  <svg width="100%" height="100%" viewBox="0 0 100 100" transform="rotate(-90)">
+    <circle class="circle-bg-dark" cx="50" cy="50" r="45"></circle>
+    <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
+    <circle class="circle-bar" cx="50" cy="50" r="45"></circle>
+  </svg>
+  <img class="red-packet" src="红包.png" alt="红包">
+  <div class="coin" id="coin">+218 金币</div>
+</div>
+<div style="
+        margin: 0 auto 16px auto;
+        max-width: 600px;
+        padding: 12px 15px;
+        border: 2px dashed #e4393c;
+        border-radius: 8px;
+        background-color: #fff5f5;
+        color: #c0392b;
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+    ">
+        进度条达到十万金币就不转了, 需要把金币兑换成钱数<br>
+        点圆形进度条就可跳转到兑换页面,手机端黑屏无法播放音乐,需要把手机设置成常亮
+    </div>
+
+<div class="container">
+    <h2>点击歌曲循环播放</h2>
+    <p class="tip-text">播放音乐即可领取红包</p>
+    <p class="tip-text">暂停则红包停止计时</p>
+    <!-- 修改：显示格式和金币页统一，同时保留上限 -->
+    <div class="coin-total" id="coinTotal">当前总金币：0 / 每日上限100000</div>
+    <div class="song-list" id="songList"></div>
+</div>
+
+<div class="player-fixed-footer">
+    <div class="play-control">
+        <button class="control-btn" id="prevBtn">上一首</button>
+        <button class="control-btn" id="playPauseBtn">播放</button>
+        <button class="control-btn" id="nextBtn">下一首</button>
+    </div>
+    <audio id="audioPlayer" controls playsinline webkit-playsinline>
+</div>
+
+<script>
+
+// 阻止双指缩放、双击放大
+document.addEventListener('touchstart', function(e) {
+    // 两根及以上手指直接阻断缩放
+    if (e.touches.length > 1) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+let lastTouchTime = 0;
+document.addEventListener('touchend', function(e) {
+    const now = Date.now();
+    // 300ms内连续点击 = 双击，阻止放大
+    if (now - lastTouchTime <= 300) {
+        e.preventDefault();
+    }
+    lastTouchTime = now;
+}, { passive: false });
+// 页面初始化默认标记为暂停
+localStorage.setItem('circleRunning', 'false');
+
+// 验证入口（可保留）
+const urlParams = new URLSearchParams(window.location.search);
+const key = urlParams.get('key');
+const canPlay = !!key && key.length >= 10;
+
+if (!canPlay) {
+    alert("请完成验证后进入");
+    location.href = "index.html";
+}
+
+let songs = [];
+let currentIndex = 0;
+let isFirstPlay = true;
+
+const songListEl = document.getElementById('songList');
+const audioPlayer = document.getElementById('audioPlayer');
+const prevBtn = document.getElementById('prevBtn');
+const playPauseBtn = document.getElementById('playPauseBtn');
+const nextBtn = document.getElementById('nextBtn');
+const coinTotal = document.getElementById('coinTotal');
+const dragBox = document.getElementById('dragBox');
+const circle = document.querySelector('.circle-bar');
+const circumference = 2 * Math.PI * 45;
+
+let progress = 0;
+let timer = null;
+
+// 音量解锁
+document.addEventListener('click', () => {
+  audioPlayer.volume = 1;
+}, { once: true });
+
+// 金币初始化
+if (!localStorage.getItem('userCoin')) localStorage.setItem('userCoin', '0');
+
+// 每日金币上限 & 日期标记
+const LIMIT_COIN = 100000;
+const today = new Date();
+const todayDateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+// 记录今日是否已达上限
+let limitDate = localStorage.getItem('limitDate') || '';
+
+circle.style.strokeDasharray = circumference;
+circle.style.strokeDashoffset = circumference;
+
+// 核心判断：是否允许进度条转动/领取金币
+function canRunCircle() {
+    let coin = parseInt(localStorage.getItem('userCoin') || 0);
+    // 跨天：清空上限标记，重置状态
+    if (limitDate !== todayDateStr) {
+        localStorage.removeItem('limitDate');
+        limitDate = '';
+    }
+    // 金币未满 且 今日未标记上限 → 允许转动
+    return coin < LIMIT_COIN;
+}
+
+// 同步状态：达上限则停止计时器
+function updateCircleStatus() {
+    let ok = canRunCircle();
+    if (!ok && timer) {
+        clearInterval(timer);
+        timer = null;
+    }
+    // 金币达到上限，标记今日已达顶
+    let coin = parseInt(localStorage.getItem('userCoin') || 0);
+    if (coin >= LIMIT_COIN && limitDate !== todayDateStr) {
+        localStorage.setItem('limitDate', todayDateStr);
+        limitDate = todayDateStr;
+    }
+}
+
+// 更新金币显示
+function updateCoinDisplay() {
+    let coin = parseInt(localStorage.getItem('userCoin') || 0);
+    coinTotal.textContent = `当前总金币：${coin} / 每日上限${LIMIT_COIN}`;
+    updateCircleStatus();
+}
+updateCoinDisplay();
+setInterval(updateCoinDisplay, 200);
+window.addEventListener('storage', updateCoinDisplay);
+
+// 保活：页面切后台/回前台自动续播（黑屏回来也能继续放）
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        // 页面重新可见，如果之前标记为播放状态则自动恢复
+        if (localStorage.getItem('circleRunning') === 'true') {
+            audioPlayer.play().catch(() => {});
+        }
+    }
+});
+
+// 播放事件
+audioPlayer.addEventListener('play', () => {
+    // 新增：标记正在播放，金币页开始计时
+    localStorage.setItem('circleRunning', 'true');
+    if (canRunCircle() && !timer) timer = setInterval(runRotate, 24);//原来是30
+});
+
+// 暂停事件
+audioPlayer.addEventListener('pause', () => {
+    // 新增：标记暂停，金币页停止计时
+    localStorage.setItem('circleRunning', 'false');
+    clearInterval(timer);
+    timer = null;
+});
+
+// 歌曲播放完毕自动下一首
+audioPlayer.addEventListener('ended', () => {
+    clearInterval(timer);
+    timer = null;
+    currentIndex = (currentIndex + 1) % songs.length;
+    play();
+});
+
+// 红包转动 + 加金币
+function runRotate() {
+    if (!canRunCircle()) return;
+    progress += 0.06;
+    if (progress >= 100) {
+        let c = parseInt(localStorage.getItem('userCoin') || 0);
+        // 再次校验，防止超上限
+        if (c < LIMIT_COIN) {
+            localStorage.setItem('userCoin', c + 218);//此处100是转一圈给的金币
+            document.getElementById('coin').classList.add('show');
+            setTimeout(()=>document.getElementById('coin').classList.remove('show'),4000);
+        }
+        progress = 0;
+    }
+    circle.style.strokeDashoffset = circumference - (progress/100)*circumference;
+}
+
+// 歌曲列表
+function getSongs() {
+    return [
+        {name:"半生雪", src:"半生雪.mp3"},
+        {name:"辞九门回忆", src:"辞九门回忆.mp3"},
+        {name:"独一无二", src:"独一无二.mp3"},
+        {name:"点歌的人", src:"点歌的人.mp3"}
+    ];
+}
+
+function renderSongs() {
+    songListEl.innerHTML = '';
+    songs = getSongs();
+    songs.forEach((s, i) => {
+        const d = document.createElement('div');
+        d.className = 'song-item';
+        d.textContent = s.name;
+        d.onclick = () => { currentIndex = i; play(); };
+        songListEl.appendChild(d);
+    });
+    updateActive();
+}
+
+function play() {
+    if (!songs.length) return;
+    audioPlayer.src = songs[currentIndex].src;
+    audioPlayer.volume = 1;
+    audioPlayer.play().catch(()=>{});
+    playPauseBtn.textContent = '暂停';
+    isFirstPlay = false;
+    updateActive();
+}
+
+function updateActive() {
+    document.querySelectorAll('.song-item').forEach((it, i) => {
+        it.classList.toggle('active', i === currentIndex);
+    });
+}
+
+playPauseBtn.onclick = () => {
+    if (isFirstPlay) { play(); return; }
+    audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause();
+    playPauseBtn.textContent = audioPlayer.paused ? '播放' : '暂停';
+};
+
+prevBtn.onclick = () => {
+    currentIndex = (currentIndex - 1 + songs.length) % songs.length;
+    play();
+};
+nextBtn.onclick = () => {
+    currentIndex = (currentIndex + 1) % songs.length;
+    play();
+};
+
+// ===================== 修复后拖拽逻辑核心改动 =====================
+let isDrag = false, hasMoved = false;
+let startX, startY, boxStartLeft, boxStartTop;
+const MOVE_THRESHOLD = 6; // 移动6像素才算拖拽，轻微滑动不判定
+
+dragBox.addEventListener('mousedown', e => {
+    isDrag = true;
+    hasMoved = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    boxStartLeft = dragBox.offsetLeft;
+    boxStartTop = dragBox.offsetTop;
+});
+// touchstart 删除 e.preventDefault()，不拦截click
+dragBox.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    isDrag = true;
+    hasMoved = false;
+    startX = t.clientX;
+    startY = t.clientY;
+    boxStartLeft = dragBox.offsetLeft;
+    boxStartTop = dragBox.offsetTop;
+});
+
+document.addEventListener('mousemove', e => {
+    if (!isDrag) return;
+    const moveX = e.clientX - startX;
+    const moveY = e.clientY - startY;
+    // 超过阈值才标记为拖动
+    if(Math.abs(moveX) > MOVE_THRESHOLD || Math.abs(moveY) > MOVE_THRESHOLD) {
+        hasMoved = true;
+    }
+    let L = boxStartLeft + moveX;
+    let T = boxStartTop + moveY;
+    const boxW = dragBox.offsetWidth;
+    const boxH = dragBox.offsetHeight;
+    L = Math.max(-boxW * 0.3, Math.min(L, window.innerWidth - boxW * 0.7));
+    T = Math.max(-boxH * 0.3, Math.min(T, window.innerHeight - boxH * 0.7));
+    dragBox.style.left = L + 'px';
+    dragBox.style.top = T + 'px';
+});
+
+document.addEventListener('touchmove', e => {
+    if (!isDrag) return;
+    const t = e.touches[0];
+    const moveX = t.clientX - startX;
+    const moveY = t.clientY - startY;
+    if(Math.abs(moveX) > MOVE_THRESHOLD || Math.abs(moveY) > MOVE_THRESHOLD) {
+        hasMoved = true;
+    }
+    let L = boxStartLeft + moveX;
+    let T = boxStartTop + moveY;
+    const boxW = dragBox.offsetWidth;
+    const boxH = dragBox.offsetHeight;
+    L = Math.max(-boxW * 0.3, Math.min(L, window.innerWidth - boxW * 0.7));
+    T = Math.max(-boxH * 0.3, Math.min(T, window.innerHeight - boxH * 0.7));
+    dragBox.style.left = L + 'px';
+    dragBox.style.top = T + 'px';
+});
+
+function endDrag() {
+    isDrag = false;
+}
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+document.addEventListener('touchcancel', endDrag);
+
+// 点击跳转逻辑正常触发
+dragBox.addEventListener('click', () => {
+    if (!hasMoved) {
+        window.open("金币页.html", "_blank");
+    }
+    hasMoved = false;
+});
+// ======================================================================
+
+renderSongs();
+
+// ===================== 【新增：黑屏/锁屏后台持续播放 - Media Session API】=====================
+// 让系统识别为媒体会话，手机黑屏、锁屏后音乐仍可持续播放不中断
+// 锁屏界面会显示歌曲名 + 播放/暂停/上一首/下一首控制按钮
+(function setupBackgroundPlay() {
+    if (!('mediaSession' in navigator)) return;
+
+    // 更新当前歌曲元数据（锁屏控制中心显示歌名和封面）
+    function updateMediaMetadata() {
+        var song = songs[currentIndex] || { name: '音乐播放' };
+        try {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: song.name || '音乐播放',
+                artist: '拼图听音乐',
+                album: '后台播放中',
+                artwork: [
+                    { src: '红包.png', sizes: '512x512', type: 'image/png' }
+                ]
+            });
+        } catch(e) {}
+    }
+
+    // 同步播放状态到系统（playing / paused）
+    function syncPlaybackState() {
+        try {
+            navigator.mediaSession.playbackState = audioPlayer.paused ? 'paused' : 'playing';
+        } catch(e) {}
+    }
+
+    // 注册锁屏/通知栏可控动作，让系统接管媒体控制
+    try {
+        navigator.mediaSession.setActionHandler('play', function() {
+            audioPlayer.play().catch(function(){});
+            playPauseBtn.textContent = '暂停';
+            syncPlaybackState();
+        });
+        navigator.mediaSession.setActionHandler('pause', function() {
+            audioPlayer.pause();
+            playPauseBtn.textContent = '播放';
+            syncPlaybackState();
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', function() {
+            currentIndex = (currentIndex - 1 + songs.length) % songs.length;
+            play();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', function() {
+            currentIndex = (currentIndex + 1) % songs.length;
+            play();
+        });
+        navigator.mediaSession.setActionHandler('seekbackward', function() {
+            audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 10);
+        });
+        navigator.mediaSession.setActionHandler('seekforward', function() {
+            audioPlayer.currentTime = Math.min(audioPlayer.duration || 0, audioPlayer.currentTime + 10);
+        });
+    } catch(e) {}
+
+    // 每次切歌（src变化）更新锁屏元数据
+    audioPlayer.addEventListener('loadstart', updateMediaMetadata);
+    // 播放/暂停同步系统状态
+    audioPlayer.addEventListener('play', syncPlaybackState);
+    audioPlayer.addEventListener('pause', syncPlaybackState);
+
+    updateMediaMetadata();
+    syncPlaybackState();
+})();
+// ======================================================================
+
+// ===================== 【新增：后台保活心跳】=====================
+// 兜底机制：如果标记为正在播放但被系统暂停（黑屏中断），自动尝试恢复播放
+setInterval(function() {
+    if (localStorage.getItem('circleRunning') === 'true' && audioPlayer.paused && !audioPlayer.ended) {
+        audioPlayer.play().catch(function(){});
+    }
+}, 3000);
+// ======================================================================
+
+// ===================== 【新增：跨页监听金币页指令】=====================
+// 监听 localStorage 变化，接收金币页播放/暂停指令
+window.addEventListener('storage', function(e) {
+    // 接收暂停指令
+    if (e.key === 'audioControlCmd' && e.newValue === 'pause') {
+        audioPlayer.pause();
+        playPauseBtn.textContent = '播放';
+    }
+    // 接收播放指令
+    if (e.key === 'audioControlCmd' && e.newValue === 'play') {
+        audioPlayer.play().catch(()=>{});
+        playPauseBtn.textContent = '暂停';
+    }
+});
+
+// 页面加载清空旧指令，避免残留
+window.addEventListener('load', function(){
+    localStorage.removeItem('audioControlCmd');
+    localStorage.removeItem('audioControlTime');
+});
+// ======================================================================
+// 1. 禁用右键菜单
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// 2. 禁用F12、Ctrl+U、Ctrl+Shift+I/C/J 开发者快捷键
+document.addEventListener('keydown', e => {
+  const key = e.key.toLowerCase();
+  // F12
+  if (key === 'f12') e.preventDefault();
+  // Ctrl + U 查看源码
+  if (e.ctrlKey && key === 'u') e.preventDefault();
+  // Ctrl+Shift+I / Ctrl+Shift+J 开发者工具
+  if (e.ctrlKey && e.shiftKey && (key === 'i' || key === 'j')) e.preventDefault();
+  // Ctrl+S 保存页面
+  if (e.ctrlKey && key === 's') e.preventDefault();
+});
+
+// 3. 检测打开控制台窗口，弹窗刷新页面（进阶防护）
+let devToolsOpen = false;
+const checkDevTool = () => {
+  const threshold = 160;
+  const widthDiff = window.outerWidth - window.innerWidth;
+  const heightDiff = window.outerHeight - window.innerHeight;
+  if (widthDiff > threshold || heightDiff > threshold) {
+    if (!devToolsOpen) {
+      devToolsOpen = true;
+      alert('禁止打开开发者工具，页面即将刷新');
+      window.location.reload();
+    }
+  } else {
+    devToolsOpen = false;
+  }
+};
+setInterval(checkDevTool, 800);
+
+// 4. 禁止拖拽复制文字/图片
+document.addEventListener('dragstart', e => e.preventDefault());
+
+</script>
+</body>
+</html>
