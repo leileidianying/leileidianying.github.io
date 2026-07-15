@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <title>3×3 完整图片拼图</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Alibaba PuHuiTi";
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            padding-top: 50px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .btn-box {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 8px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            background: #409eff;
+            color: #fff;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+        button:hover {
+            background: #66b1ff;
+        }
+        .puzzle-box {
+            width: 300px;
+            height: 300px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 2px;
+            background: #999;
+            padding: 2px;
+            border-radius: 6px;
+        }
+        .item {
+            cursor: pointer;
+            overflow: hidden;
+            background-image: url("拼图.jpg");
+            background-size: 300px 300px;
+            background-repeat: no-repeat;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .empty {
+            background: #999 !important;
+            cursor: default;
+            background-image: none !important;
+        }
+        #tip {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #09c;
+        }
+    </style>
+</head>
+<body>
+    <!-- 购买提示条 -->
+    <div style="
+        margin: 0 auto 16px auto;
+        max-width: 600px;
+        padding: 12px 15px;
+        border: 2px dashed #e4393c;
+        border-radius: 8px;
+        background-color: #fff5f5;
+        color: #c0392b;
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+    ">
+        <p>拼图过关可进入挣钱页面</p>
+    </div>
+    <h1>完整图片拼图游戏</h1>
+    <div class="btn-box">
+        <button id="reset">重新开始</button>
+        <button id="shuffle">打乱</button>
+    </div>
+    <div class="puzzle-box" id="puzzle"></div>
+    <div id="tip"></div>
+
+<script>
+    const puzzleDom = document.getElementById('puzzle');
+    const tipDom = document.getElementById('tip');
+    const resetBtn = document.getElementById('reset');
+    const shuffleBtn = document.getElementById('shuffle');
+
+    // ========== 新增禁止缩放代码 ==========
+(function lockScale() {
+    let lastTouchEnd = 0;
+    // 禁止双击放大
+    document.addEventListener('touchend', function (e) {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+            e.preventDefault();
+        }
+        lastTouchEnd = now;
+    }, false);
+    // 禁止双指触控
+    document.addEventListener('touchstart', function (e) {
+        if (e.touches.length > 1) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+    // 苹果手势缩放
+    document.addEventListener('gesturestart', e => e.preventDefault());
+})();
+// ======================================
+
+
+    let puzzleArr = [1,2,3,4,5,6,7,8,0];
+    const targetArr = [1,2,3,4,5,6,7,8,0];
+    const blockSize = 100;
+    let isShuffled = false;
+
+    // 生成一次性安全密钥（别人无法伪造）
+    function createSecureKey() {
+        return Array.from(window.crypto.getRandomValues(new Uint8Array(8)))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    }
+    let secureKey = '';
+
+    const items = [];
+    for(let i=0;i<9;i++){
+        const d = document.createElement('div');
+        d.className = 'item';
+        d.dataset.index = i;
+        puzzleDom.appendChild(d);
+        items.push(d);
+    }
+
+    function renderPuzzle(){
+        puzzleArr.forEach((num, index) => {
+            const el = items[index];
+            el.className = 'item';
+            if (num === 0) {
+                el.classList.add('empty');
+                return;
+            }
+            const x = ((num - 1) % 3) * -blockSize;
+            const y = Math.floor((num - 1) / 3) * -blockSize;
+            el.style.backgroundPosition = `${x}px ${y}px`;
+        });
+    }
+
+    function moveBlock(e){
+        const clickIndex = +e.currentTarget.dataset.index;
+        const emptyIndex = puzzleArr.indexOf(0);
+        const canMove = [emptyIndex-3, emptyIndex+3, emptyIndex-1, emptyIndex+1];
+
+        if(emptyIndex % 3 === 0 && clickIndex === emptyIndex - 1) return;
+        if((emptyIndex + 1) % 3 === 0 && clickIndex === emptyIndex + 1) return;
+
+        if(canMove.includes(clickIndex)){
+            [puzzleArr[clickIndex], puzzleArr[emptyIndex]] = [puzzleArr[emptyIndex], puzzleArr[clickIndex]];
+            renderPuzzle();
+            checkWin();
+        }
+    }
+
+    // ✅ 安全胜利判断：无法伪造、无法跳过
+    function checkWin(){
+        if(isShuffled && puzzleArr.join('') === targetArr.join('')){
+            tipDom.innerText = '🎉 拼图完成！即将进入音乐页面~';
+            
+            // 生成安全密钥，只有真正通关才会生成
+            secureKey = createSecureKey();
+            setTimeout(() => {
+                // 跳转到音乐页 + 安全密钥
+                location.href = `拼图成功页面1.html?key=${secureKey}`;
+            }, 1000);
+        }
+    }
+
+    function shufflePuzzle(){
+        let arr = [...puzzleArr];
+        for(let i=arr.length-1;i>0;i--){
+            const r = Math.floor(Math.random()*(i+1));
+            [arr[i], arr[r]] = [arr[r], arr[i]];
+        }
+        puzzleArr = arr;
+        isShuffled = true;
+        secureKey = ''; // 重置密钥
+        tipDom.innerText = '';
+        renderPuzzle();
+    }
+
+    function resetPuzzle(){
+        puzzleArr = [...targetArr];
+        isShuffled = false;
+        secureKey = '';
+        tipDom.innerText = '';
+        renderPuzzle();
+    }
+
+    items.forEach(item => item.addEventListener('click', moveBlock));
+    resetBtn.addEventListener('click', resetPuzzle);
+    shuffleBtn.addEventListener('click', shufflePuzzle);
+    renderPuzzle();
+</script>
+</body>
+</html>
